@@ -245,16 +245,33 @@ FROM tbl
 WHERE YEAR(Order_Date) = '2011' AND
 	  MONTH(Order_Date) IN ('01', '02','03','04','05','06','07','08','09','10','11','12')
 
+/*
+6. Write a query to return for each user the time elapsed between 
+the first purchasing and the third purchasing, in ascending order by Customer ID.
+*/
 
+WITH tbl AS(
+SELECT Cust_id, Customer_Name, Order_date,
+	   ROW_NUMBER() OVER(PARTITION BY Cust_id ORDER BY Order_date) [row_number]
+FROM combined_table
+), tbl2 AS(
+SELECT Cust_id, Order_Date
+FROM tbl
+WHERE [row_number] = 1
+), tbl3 AS(
+SELECT Cust_id, Order_Date
+FROM tbl
+WHERE [row_number] = 3
+)
+SELECT A.Cust_id, A.Order_date, DATEDIFF(DAY, A.Order_date, B.Order_date) day_numbers
+FROM tbl2 A, tbl3 B
+WHERE A.Cust_id = B.Cust_id
+ORDER BY Cust_id
 
-
-
-
-
-
-
-
-
+/*
+7. Write a query that returns customers who purchased both product 11 and
+product 14, as well as the ratio of these products to the total number of products purchased by the customer.
+*/
 
 
 
