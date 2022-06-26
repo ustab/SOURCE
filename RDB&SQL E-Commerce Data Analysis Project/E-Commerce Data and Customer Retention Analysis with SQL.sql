@@ -200,7 +200,7 @@ FROM combined_table
 2. Find the top 3 customers who have the maximum count of orders.
 */
 
-SELECT TOP (3) Customer_Name, Cust_id,  COUNT(Ord_id) count_of_order
+SELECT TOP (3) Customer_Name, Cust_id,  COUNT(DISTINCT Ord_id) count_of_order
 FROM combined_table
 GROUP BY Customer_Name, Cust_id
 ORDER BY count_of_order DESC
@@ -240,7 +240,7 @@ SELECT DISTINCT Cust_id, Order_Date
 FROM combined_table
 WHERE MONTH(Order_Date) = '01'
 ) 
-SELECT COUNT(Cust_id) count_of_customer
+SELECT COUNT(DISTINCT Cust_id) count_of_customer
 FROM tbl
 WHERE YEAR(Order_Date) = '2011' AND
 	  MONTH(Order_Date) IN ('01', '02','03','04','05','06','07','08','09','10','11','12')
@@ -272,6 +272,150 @@ ORDER BY Cust_id
 7. Write a query that returns customers who purchased both product 11 and
 product 14, as well as the ratio of these products to the total number of products purchased by the customer.
 */
+
+
+SELECT Cust_id, Prod_id, SUM(Order_Quantity) total_prod_amount
+FROM combined_table
+WHERE Cust_id IN (SELECT Cust_id
+				  FROM combined_table
+				  WHERE Prod_id = 11
+				  INTERSECT
+				  SELECT Cust_id
+				  FROM combined_table
+				  WHERE Prod_id = 14
+				  )
+GROUP BY Cust_id, Prod_id
+ORDER BY 1
+
+---
+
+WITH tbl AS(
+SELECT Cust_id, Prod_id, SUM(Order_Quantity) total_prod_amount
+FROM combined_table
+WHERE Cust_id IN (SELECT Cust_id
+				  FROM combined_table
+				  WHERE Prod_id = 11
+				  INTERSECT
+				  SELECT Cust_id
+				  FROM combined_table
+				  WHERE Prod_id = 14
+				  )
+GROUP BY Cust_id, Prod_id
+),tbl2 AS(
+SELECT Cust_id, SUM(total_prod_amount) OVER(PARTITION BY Cust_id) total_amount
+FROM tbl
+),tbl3 AS(
+SELECT Cust_id, SUM(total_prod_amount) OVER(PARTITION BY Cust_id) total_amount_11and14
+FROM tbl
+WHERE Prod_id IN (11, 14)
+)
+SELECT DISTINCT A.Cust_id, CAST((B.total_amount_11and14 * 1.0 / A.total_amount) AS NUMERIC(4,2)) ratio_of_11and14
+FROM tbl2 A, tbl3 B
+WHERE A.Cust_id = B.Cust_id
+
+---
+
+/*
+Customer Segmentation 
+Categorize customers based on their frequency of visits.
+*/
+
+
+/*
+1. Create a “view” that keeps visit logs of customers on a monthly basis. 
+(For each log, three field is kept: Cust_id, Year, Month)
+*/
+
+CREATE VIEW Visit_Logs_Of_Cust AS
+SELECT DISTINCT Cust_id, YEAR(Order_Date) order_year, MONTH(Order_Date) order_month,
+	   COUNT(Order_Date) OVER(PARTITION BY Cust_id, YEAR(Order_Date), MONTH(Order_Date)) Logs_on_Cust_Monthly
+FROM combined_table
+
+SELECT * FROM Visit_Logs_Of_Cust
+ORDER BY Cust_id
+
+
+/*
+2. Create a “view” that keeps the number of monthly visits by users. 
+(Show separately all months from the beginning business)
+*/
+
+CREATE VIEW Monthly_Visit AS 
+SELECT DISTINCT Cust_id, DATENAME(M, Order_Date) month_name,
+	   COUNT(Order_Date) OVER(PARTITION BY Cust_id , MONTH(Order_Date) ) monthly_visits
+FROM combined_table
+
+SELECT * 
+FROM Monthly_Visit
+ORDER BY 1, 2
+
+
+/*
+3. For each visit of customers, create the next month of the visit as a separate column.
+*/
+
+SELECT DISTINCT Cust_id, Order_Date,
+	   LEAD(Order_Date) OVER(PARTITION BY Cust_id ORDER BY Order_Date) next_visit
+FROM combined_table
+ORDER BY Cust_id
+
+/*
+4. Calculate the monthly time gap between two consecutive visits by each customer.
+*/
+
+
+SELECT DISTINCT Cust_id, Order_Date,
+	   LEAD(Order_Date) OVER(PARTITION BY Cust_id ORDER BY Order_Date) next_visit,
+	   DATEDIFF(MONTH, Order_Date, LEAD(Order_Date) OVER(PARTITION BY Cust_id ORDER BY Order_Date)) month_diff
+FROM combined_table
+ORDER BY Cust_id
+
+
+/*
+5. Categorise customers using average time gaps. Choose the most fitted labeling model for you.
+For example:
+o Labeled as churn if the customer hasn't made another purchase in the months since they made their first purchase.
+o Labeled as regular if the customer has made a purchase every month.
+*/
+
+
+SELECT DISTINCT Cust_id, Order_Date,
+	   ROW_NUMBER() OVER(PARTITION BY Cust_id ORDER BY Order_Date) rownumber,
+	   LEAD(Order_Date) OVER(PARTITION BY Cust_id ORDER BY Order_Date) next_visit,
+	   DATEDIFF(MONTH, Order_Date, LEAD(Order_Date) OVER(PARTITION BY Cust_id ORDER BY Order_Date)) month_diff	  
+FROM combined_table
+ORDER BY Cust_id
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
