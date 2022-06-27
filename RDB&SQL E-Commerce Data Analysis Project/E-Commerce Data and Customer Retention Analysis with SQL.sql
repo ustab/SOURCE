@@ -427,44 +427,31 @@ Find month-by-month customer retention rate since the start of the business.
 
 /*
 1. Find the number of customers retained month-wise. (You can use time gaps)
+2. Calculate the month-wise retention rate.
 */
 
+SELECT M.month_name, COUNT(M.Cust_id) retained_cust
+INTO retained_cust
+FROM Monthly_Visit M, cust_category C
+WHERE M.Cust_id = C.Cust_id AND 
+	  C.cust_category IN ('Regular', 'Normal')
+GROUP BY M.month_name
+ORDER BY 1
 
+--
 
+SELECT M.month_name, COUNT(M.Cust_id) all_cust
+INTO all_cust
+FROM Monthly_Visit M, cust_category C
+WHERE M.Cust_id = C.Cust_id 
+GROUP BY M.month_name
+ORDER BY 1
 
+--
 
+SELECT R.*, A.all_cust,
+	   CAST((1.0 * retained_cust / all_cust) AS DECIMAL (4,2)) month_wise_retention_rate
+FROM all_cust A, retained_cust R
+WHERE A.month_name = R.month_name
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+--- END ---
