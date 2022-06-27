@@ -379,24 +379,55 @@ o Labeled as regular if the customer has made a purchase every month.
 */
 
 
+WITH tbl AS(
 SELECT DISTINCT Cust_id, Order_Date,
 	   ROW_NUMBER() OVER(PARTITION BY Cust_id ORDER BY Order_Date) rownumber,
 	   LEAD(Order_Date) OVER(PARTITION BY Cust_id ORDER BY Order_Date) next_visit,
-	   DATEDIFF(MONTH, Order_Date, LEAD(Order_Date) OVER(PARTITION BY Cust_id ORDER BY Order_Date)) month_diff	  
+	   DATEDIFF(MONTH, Order_Date, LEAD(Order_Date) OVER(PARTITION BY Cust_id ORDER BY Order_Date)) month_diff
 FROM combined_table
-ORDER BY Cust_id
+ORDER BY Cust_id OFFSET 0 ROWS
+), tbl2 AS(
+SELECT DISTINCT Cust_id, 
+	   COUNT(rownumber) OVER(PARTITION BY Cust_id) rows_count,
+	   AVG(month_diff) OVER(PARTITION BY Cust_id) avg_month_diff
+FROM tbl 
+),tbl3 AS( 
+SELECT Cust_id, rows_count, avg_month_diff
+FROM tbl2
+WHERE rows_count >= 2 AND avg_month_diff > 0
+),tbl4 AS(
+SELECT Cust_id, 
+	   CAST((1.0 * rows_count / avg_month_diff) AS DECIMAL(4,2)) regular_cust_rate
+FROM tbl3
+)
+SELECT *, 
+	   CAST(AVG(regular_cust_rate) OVER() AS DECIMAL(4,2)) avg_regular_cust_rate
+INTO regularity_table
+FROM tbl4
 
+--SELECT * FROM regularity_table
 
+SELECT Cust_id, regular_cust_rate,
+	   CASE 
+		   WHEN regular_cust_rate >= 1.8 THEN 'Regular'
+		   WHEN regular_cust_rate > 1 AND regular_cust_rate < 2 THEN 'Normal'
+		   ELSE 'Churn' 
+	   END cust_category
+INTO cust_category
+FROM regularity_table
 
+SELECT * FROM cust_category
 
+---
 
+/*
+Month-Wise Retention Rate
+Find month-by-month customer retention rate since the start of the business.
+*/
 
-
-
-
-
-
-
+/*
+1. Find the number of customers retained month-wise. (You can use time gaps)
+*/
 
 
 
